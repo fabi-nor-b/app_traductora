@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Traductor EN → ES · Qwen2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Variables ───────────────────────────────────── */
+    :root {
+      --bg:        #0d0f14;
+      --surface:   #13161e;
+      --border:    #232736;
+      --accent:    #5cead4;
+      --accent2:   #a78bfa;
+      --text:      #e8eaf0;
+      --muted:     #6b7280;
+      --error:     #f87171;
+      --radius:    12px;
+      --mono:      'DM Mono', monospace;
+      --sans:      'DM Sans', sans-serif;
+      --serif:     'Playfair Display', serif;
+    }
+
+    /* ── Reset ───────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      /* faint grid texture */
+      background-image:
+        linear-gradient(rgba(92,234,212,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(92,234,212,.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+    }
+
+    /* ── Header ──────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+      animation: fadeDown .6s ease both;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--accent);
+      background: rgba(92,234,212,.08);
+      border: 1px solid rgba(92,234,212,.2);
+      border-radius: 99px;
+      padding: .3rem .85rem;
+      letter-spacing: .06em;
+      margin-bottom: 1.1rem;
+    }
+    .badge::before {
+      content: '';
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+      animation: pulse 2s ease infinite;
+    }
+
+    h1 {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -.02em;
+      background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      margin-top: .6rem;
+      font-size: .92rem;
+      color: var(--muted);
+      font-weight: 300;
+      letter-spacing: .01em;
+    }
+
+    /* ── Card ────────────────────────────────────────── */
+    .card {
+      width: 100%;
+      max-width: 680px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2rem 2rem 1.75rem;
+      box-shadow: 0 0 0 1px rgba(255,255,255,.03),
+                  0 24px 64px rgba(0,0,0,.5);
+      animation: fadeUp .65s .15s ease both;
+    }
+
+    /* ── Labels ──────────────────────────────────────── */
+    .field-label {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      font-family: var(--mono);
+      font-size: .72rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .6rem;
+    }
+    .field-label .lang-tag {
+      font-size: .68rem;
+      padding: .15rem .5rem;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+    .lang-en { background: rgba(167,139,250,.15); color: var(--accent2); border: 1px solid rgba(167,139,250,.25); }
+    .lang-es { background: rgba(92,234,212,.12); color: var(--accent);  border: 1px solid rgba(92,234,212,.22); }
+
+    /* ── Textarea ─────────────────────────────────────── */
+    textarea {
+      width: 100%;
+      background: rgba(255,255,255,.03);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 1rem;
+      font-weight: 300;
+      line-height: 1.65;
+      padding: .9rem 1rem;
+      resize: vertical;
+      min-height: 110px;
+      transition: border-color .2s, box-shadow .2s;
+      outline: none;
+    }
+    textarea:focus {
+      border-color: rgba(92,234,212,.4);
+      box-shadow: 0 0 0 3px rgba(92,234,212,.08);
+    }
+    textarea::placeholder { color: var(--muted); }
+
+    .char-count {
+      text-align: right;
+      font-family: var(--mono);
+      font-size: .7rem;
+      color: var(--muted);
+      margin-top: .35rem;
+    }
+    .char-count.warn { color: var(--error); }
+
+    /* ── Divider ─────────────────────────────────────── */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin: 1.4rem 0;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .divider-icon {
+      font-size: 1.1rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+    }
+
+    /* ── Button ──────────────────────────────────────── */
+    button {
+      width: 100%;
+      padding: .85rem 1.5rem;
+      background: linear-gradient(135deg, rgba(92,234,212,.15), rgba(167,139,250,.12));
+      border: 1px solid rgba(92,234,212,.3);
+      border-radius: var(--radius);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: .88rem;
+      font-weight: 500;
+      letter-spacing: .08em;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: .6rem;
+      margin-top: 1rem;
+    }
+    button:hover:not(:disabled) {
+      background: linear-gradient(135deg, rgba(92,234,212,.22), rgba(167,139,250,.18));
+      border-color: rgba(92,234,212,.55);
+      box-shadow: 0 0 20px rgba(92,234,212,.12);
+      transform: translateY(-1px);
+    }
+    button:active:not(:disabled) { transform: translateY(0); }
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    /* ── Result box ──────────────────────────────────── */
+    .result-box {
+      display: none;
+      margin-top: 1.5rem;
+      animation: fadeUp .4s ease both;
+    }
+    .result-box.visible { display: block; }
+
+    .result-text {
+      background: rgba(92,234,212,.05);
+      border: 1px solid rgba(92,234,212,.18);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+      font-size: 1.05rem;
+      font-weight: 300;
+      line-height: 1.7;
+      color: var(--text);
+      min-height: 54px;
+      word-break: break-word;
+    }
+
+    .result-text.error-text {
+      background: rgba(248,113,113,.06);
+      border-color: rgba(248,113,113,.2);
+      color: var(--error);
+      font-size: .92rem;
+    }
+
+    /* ── Loading spinner ─────────────────────────────── */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(92,234,212,.25);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+    button.loading .spinner { display: block; }
+    button.loading .btn-label { opacity: .6; }
+
+    /* ── Footer ──────────────────────────────────────── */
+    footer {
+      margin-top: 2rem;
+      font-family: var(--mono);
+      font-size: .68rem;
+      color: var(--muted);
+      letter-spacing: .05em;
+      text-align: center;
+      animation: fadeUp .7s .3s ease both;
+    }
+    footer span { color: rgba(92,234,212,.5); }
+
+    /* ── Animations ──────────────────────────────────── */
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .35; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Header ── -->
+  <header>
+    <div class="badge">Qwen2-0.5B · Local · CPU</div>
+    <h1>Traductor EN → ES</h1>
+    <p class="subtitle">Traducción local con modelo de lenguaje · sin APIs externas</p>
+  </header>
+
+  <!-- ── Card ── -->
+  <div class="card">
+
+    <!-- Input -->
+    <div class="field-label">
+      <span class="lang-tag lang-en">EN</span>
+      Texto en inglés
+    </div>
+    <textarea
+      id="inputText"
+      placeholder="Escribe o pega tu texto en inglés aquí…"
+      maxlength="500"
+      autofocus
+    ></textarea>
+    <div class="char-count" id="charCount">0 / 500</div>
+
+    <!-- Button -->
+    <button id="translateBtn" onclick="translate()">
+      <div class="spinner"></div>
+      <span class="btn-label">TRADUCIR</span>
+    </button>
+
+    <!-- Divider -->
+    <div class="divider" id="divider" style="display:none">
+      <span class="divider-icon">↓</span>
+    </div>
+
+    <!-- Output -->
+    <div class="result-box" id="resultBox">
+      <div class="field-label">
+        <span class="lang-tag lang-es">ES</span>
+        Traducción al español
+      </div>
+      <div class="result-text" id="resultText"></div>
+    </div>
+
+  </div>
+
+  <!-- ── Footer ── -->
+  <footer>
+    Modelo: <span>Qwen/Qwen2-0.5B-Instruct</span> · Ejecutado localmente · Sin GPU requerida
+  </footer>
+
+  <script>
+    const inputEl   = document.getElementById('inputText');
+    const countEl   = document.getElementById('charCount');
+    const btn       = document.getElementById('translateBtn');
+    const resultBox = document.getElementById('resultBox');
+    const resultEl  = document.getElementById('resultText');
+    const divider   = document.getElementById('divider');
+
+    // ── Contador de caracteres ──────────────────────────
+    inputEl.addEventListener('input', () => {
+      const len = inputEl.value.length;
+      countEl.textContent = `${len} / 500`;
+      countEl.classList.toggle('warn', len >= 450);
+    });
+
+    // ── Traducir con Enter (Ctrl/Cmd + Enter) ───────────
+    inputEl.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') translate();
+    });
+
+    // ── Función principal ───────────────────────────────
+    async function translate() {
+      const text = inputEl.value.trim();
+
+      // Validación en frontend
+      if (!text) {
+        showResult('Por favor, escribe algo para traducir.', true);
+        return;
+      }
+
+      // Estado de carga
+      setLoading(true);
+
+      try {
+        const response = await fetch('/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || data.error) {
+          showResult(data.error || 'Error desconocido en el servidor.', true);
+        } else {
+          showResult(data.translation, false);
+        }
+
+      } catch (err) {
+        showResult('No se pudo conectar con el servidor. Verifica que Flask esté corriendo.', true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // ── Helpers ─────────────────────────────────────────
+    function showResult(text, isError) {
+      resultEl.textContent = text;
+      resultEl.className   = 'result-text' + (isError ? ' error-text' : '');
+      resultBox.classList.add('visible');
+      divider.style.display = 'flex';
+    }
+
+    function setLoading(loading) {
+      btn.disabled = loading;
+      btn.classList.toggle('loading', loading);
+      if (loading) {
+        const label = btn.querySelector('.btn-label');
+        label.textContent = 'TRADUCIENDO…';
+      } else {
+        const label = btn.querySelector('.btn-label');
+        label.textContent = 'TRADUCIR';
+      }
+    }
+  </script>
+
+</body>
+</html>
